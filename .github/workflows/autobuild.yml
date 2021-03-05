@@ -5,20 +5,28 @@ on:
     - cron:  '0 1 * * *'    # At 1AM UTC Every day
 
 jobs:
-  singleJobName:
+  build:
+    name: ci
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-       
-    - name: Build and push
-      uses: docker/build-push-action@v1
-      with:
-        registry: docker.pkg.github.com
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.WORKFLOWS_TOKEN }}
-        repository: ${{ github.repository }}/alpine-nginx-php
-        push: true
-        tag_with_sha: true
-        tag_with_ref: true
-        tags: latest
+      - id: prep
+        run: |
+          echo ::set-output name=tags::ghcr.io/${{ github.repository_owner }}/alpine-nginx-php:latest
+      - uses: docker/setup-qemu-action@master
+        with:
+          platforms: all
+      - id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          install: true
+      - uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.WORKFLOWS_TOKEN }}
+      - uses: docker/build-push-action@v2
+        with:
+          tags: ${{ steps.prep.outputs.tags }}
+          builder: ${{ steps.buildx.outputs.name }}
+          push: true 
+          platforms: linux/amd64,linux/arm64,linux/386
